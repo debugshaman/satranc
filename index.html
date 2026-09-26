@@ -59,7 +59,8 @@
     width: 100%; height: 100%; display: grid;
     grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
     border-radius: 6px; overflow: hidden; box-shadow: 0 6px 24px rgba(0,0,0,.25);
-    user-select: none; -webkit-user-select: none; touch-action: none;
+    user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+    touch-action: pinch-zoom; /* tek parmak: taş oynat; iki parmak: yakınlaştır; çift dokunma: yakınlaştırma yok */
   }
   .sq { position: relative; display: flex; align-items: center; justify-content: center; }
   .sq.l { background: var(--light); } .sq.d { background: var(--dark); }
@@ -1214,7 +1215,7 @@ function squareAt(x, y) {
 function clearHover() { boardEl.querySelectorAll('.sq.hover').forEach(e => e.classList.remove('hover')); }
 
 boardEl.addEventListener('pointerdown', e => {
-  if (e.button > 0) return;
+  if (e.button > 0 || !e.isPrimary) return; // ikinci parmak (iki parmakla yakınlaştırma) hamle sayılmaz
   const sqEl = e.target.closest('.sq');
   if (!sqEl) return;
   const sq = +sqEl.dataset.sq;
@@ -1269,6 +1270,22 @@ async function endPress(e, cancelled) {
 boardEl.addEventListener('pointerup', e => endPress(e, false));
 boardEl.addEventListener('pointercancel', e => endPress(e, true));
 boardEl.addEventListener('contextmenu', e => e.preventDefault());
+
+// iOS Safari: iki hızlı dokunuşu "çift dokunma yakınlaştırması" sayar. Tek parmakla
+// yapılan ikinci hızlı dokunuşu iptal et; iki parmakla yakınlaştırma etkilenmez.
+let lastTouchEnd = 0;
+document.addEventListener('touchend', e => {
+  const now = Date.now();
+  const quick = now - lastTouchEnd < 350;
+  lastTouchEnd = now;
+  if (!quick || e.touches.length > 0 || e.changedTouches.length !== 1) return;
+  const t = e.target;
+  if (t.closest && t.closest('input, select, textarea')) return; // metin alanları normal çalışsın
+  e.preventDefault();
+  // preventDefault tıklamayı da iptal eder; düğmelerde tıklamayı kendimiz tetikleyelim
+  const btn = t.closest && t.closest('button, a');
+  if (btn && !btn.disabled) btn.click();
+}, { passive: false });
 
 // ---------- Butonlar ----------
 $('tabAi').onclick = () => { if (mode !== 'ai') { showMsg(''); startAiMode(); } };
