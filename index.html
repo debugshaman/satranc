@@ -7,6 +7,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#3f7d4e">
+<meta name="apple-mobile-web-app-title" content="Satranç">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
   :root {
@@ -241,6 +246,10 @@
       <p class="msg" id="onMsg" hidden></p>
     </div>
 
+    <div class="pane" id="installBox" hidden>
+      <button id="installBtn" class="primary">📲 Uygulama olarak yükle</button>
+      <p class="hint" id="iosHint" hidden>iPhone'da yüklemek için: Safari'de alttaki <b>Paylaş</b> düğmesine dokun, ardından <b>Ana Ekrana Ekle</b>'yi seç.</p>
+    </div>
     <div class="row">
       <button id="undo">↶ Geri al</button>
       <button id="flip">⇅ Çevir</button>
@@ -1313,6 +1322,36 @@ else {
   startAiMode();
   if (saved && saved.code) { /* son çevrimiçi oyun "Arkadaşla" sekmesinde bekliyor */ }
 }
+
+// Uygulama olarak yüklenebilmesi ve internetsiz açılabilmesi için
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+// "Uygulama olarak yükle": Android/Chrome yükleme penceresi, iPhone'da talimat
+(() => {
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  if (standalone) return;
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  let deferred = null;
+  if (isIOS) {
+    $('installBox').hidden = false;
+    $('installBtn').onclick = () => { $('iosHint').hidden = !$('iosHint').hidden; };
+  }
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferred = e;
+    $('installBox').hidden = false;
+  });
+  $('installBtn').addEventListener('click', async () => {
+    if (!deferred) return;
+    deferred.prompt();
+    await deferred.userChoice.catch(() => null);
+    deferred = null;
+    $('installBox').hidden = true;
+  });
+  window.addEventListener('appinstalled', () => { $('installBox').hidden = true; });
+})();
 </script>
 </body>
 </html>
